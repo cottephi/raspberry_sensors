@@ -11,21 +11,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sme280 := NewSME280Sensor("/dev/i2c-1", 0x76)
+	ctrlChan := make(chan bool)
+	defer close(ctrlChan)
 
-	sme280.Start()
-	defer sme280.Stop()
-
-	sme280.Read()
-
-	// Display the sensor data
-	log.Println(sme280.data.Display())
-
-	// Marshall the sensor data to JSON
-	jsonData, err := sme280.data.Marshall()
-	if err != nil {
-		log.Fatal(err)
+	sensors:= []*Sensor {
+		&NewSME280Sensor("/dev/i2c-1", 0x76).Sensor,
 	}
-	log.Println("JSON Data:", jsonData)
 
+	for _, sensor := range sensors {
+		sensor.Start()
+		defer sensor.Stop()
+		go sensor.Monitor(ctrlChan)
+	}
+
+	server := NewServer(ctrlChan)
+	server.Start(8080)
+	
 }

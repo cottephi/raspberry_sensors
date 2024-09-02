@@ -41,12 +41,14 @@ type SME280Sensor struct {
 	Sensor
 }
 
+
 func NewSME280Sensor(bus string, address uint16) *SME280Sensor {
 	return &SME280Sensor{
 		Sensor: Sensor{
 			Bus:     bus,
 			Address: address,
 			data:    &SME280Data{},
+			name:   "SME280",
 		},
 	}
 }
