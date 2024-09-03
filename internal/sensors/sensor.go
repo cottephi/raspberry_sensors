@@ -2,7 +2,6 @@ package sensors
 
 import (
 	"log"
-	"fmt"
 	"time"
 	"sync"
 	"periph.io/x/conn/v3/i2c/i2creg"
@@ -11,8 +10,8 @@ import (
 )
 
 type SensorData interface {
-	Display() string
-	Marshall() (string, error)
+	Display()
+	WriteToInfluxDB() error
 	UpdateFromEnv(env physic.Env)
 }
 
@@ -60,18 +59,18 @@ func (sensor *Sensor) Read() error {
 }
 
 func (sensor *Sensor) Stop() {
-	defer sensor.connection.Halt()
+	defer sensor.connection.Halt() //nolint:errcheck
 }
 
 func (sensor *Sensor) Monitor(ctrlChan chan bool) {
-	for {
+	for { //nolint:gosimple
 		select {
 		case start := <-ctrlChan:
 			if start {
 				// Start monitoring if not already running
 				sensor.mu.Lock()
 				if !sensor.isRunning {
-					fmt.Println("Starting sensor", sensor.name)
+					log.Println("Starting sensor", sensor.name)
 					sensor.isRunning = true
 					sensor.mu.Unlock()
 
@@ -87,13 +86,16 @@ func (sensor *Sensor) Monitor(ctrlChan chan bool) {
 							if err := sensor.Read(); err != nil {
 								log.Println(err)
 							}	else {
-								fmt.Println(sensor.data.Display())
+								sensor.data.Display()
+								if err := sensor.data.WriteToInfluxDB(); err != nil {
+									log.Println(err)
+								}
 							}
 							time.Sleep(time.Second)
 						}
 					}()
 				} else {
-					fmt.Println("Sensor", sensor.name, " already running")
+					log.Println("Sensor", sensor.name, " already running")
 					sensor.mu.Unlock()
 				}
 			} else {
@@ -101,9 +103,9 @@ func (sensor *Sensor) Monitor(ctrlChan chan bool) {
 				sensor.mu.Lock()
 				if sensor.isRunning {
 					sensor.isRunning = false
-					fmt.Println("Stopped sensor", sensor.name)
+					log.Println("Stopped sensor", sensor.name)
 				} else {
-					fmt.Println("Sensor", sensor.name, "not running")
+					log.Println("Sensor", sensor.name, "not running")
 				}
 				sensor.mu.Unlock()
 			}
