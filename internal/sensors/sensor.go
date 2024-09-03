@@ -109,6 +109,7 @@ func (sensor *Sensor) Monitor(ctrlChan chan bool) {
 				}
 				sensor.mu.Unlock()
 			}
+			ctrlChan <- true // Confirm that the sensor received its instruction
 		}
 	}
 }
