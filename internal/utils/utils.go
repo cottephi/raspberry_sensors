@@ -11,17 +11,16 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"github.com/influxdata/influxdb-client-go/v2"
+
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"periph.io/x/host/v3"
 )
-
-
 
 func StartLogger(logFile string) {
 	err := logger.InitGlobalLogger(logFile, logger.DebugLevel)
 	if err != nil {
-			fmt.Printf("Failed to initialize logger: %v", err)
-			os.Exit(1)
+		fmt.Printf("Failed to initialize logger: %v", err)
+		os.Exit(1)
 	}
 	defer logger.GlobalLogger.Close()
 
@@ -46,7 +45,7 @@ func StartDB() *influxdb2.Client {
 
 func StartSensors(influxClient *influxdb2.Client, dryRun bool) ([][2]chan bool, []*sensors.Sensor) {
 	logger.GlobalLogger.Debug("Creating Sensors...")
-	sensors_slice := []*sensors.Sensor {
+	sensors_slice := []*sensors.Sensor{
 		&sensors.NewSME280Sensor("/dev/i2c-1", 0x76, *influxClient, "raspberry", "seconds", dryRun).Sensor,
 	}
 	logger.GlobalLogger.Debug("...ok")
@@ -77,35 +76,35 @@ func StartServer(controlChannels [][2]chan bool) *api.Server {
 func UseStartFlag(start bool) {
 	if start {
 		logger.GlobalLogger.Debug("Sending data acquisition start signal right away")
-		err := QueryWithRetry("http://localhost:8080/sensors/start", 5 * time.Second)
-    if err != nil {
+		err := QueryWithRetry("http://localhost:8080/sensors/start", 5*time.Second)
+		if err != nil {
 			logger.GlobalLogger.Fatalf("Failed to start sensors: %v", err)
-    }
+		}
 	}
 }
 
 func QueryWithRetry(url string, timeout time.Duration) error {
-    // Deadline is the maximum time we allow for retries
-    deadline := time.Now().Add(timeout)
-    
-    var lastErr error
+	// Deadline is the maximum time we allow for retries
+	deadline := time.Now().Add(timeout)
 
-    for time.Now().Before(deadline) {
-        resp, err := http.Get(url)
-        if err != nil {
-            // Check if the error contains "connection refused"
-            if strings.Contains(err.Error(), "connection refused") {
-                lastErr = err
-                time.Sleep(100 * time.Millisecond) // Short delay before retrying
-                continue
-            }
-            return err // If it's a different error, return immediately
-        }
-        resp.Body.Close()
-        return nil // Successful
-    }
-    // If we exit the loop, it means we exhausted the retries
-    return lastErr
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(url)
+		if err != nil {
+			// Check if the error contains "connection refused"
+			if strings.Contains(err.Error(), "connection refused") {
+				lastErr = err
+				time.Sleep(100 * time.Millisecond) // Short delay before retrying
+				continue
+			}
+			return err // If it's a different error, return immediately
+		}
+		resp.Body.Close()
+		return nil // Successful
+	}
+	// If we exit the loop, it means we exhausted the retries
+	return lastErr
 }
 
 func WaitForExitSignal(server *api.Server) {
@@ -116,10 +115,10 @@ func WaitForExitSignal(server *api.Server) {
 
 	select {
 	case <-exitChan:
-        logger.GlobalLogger.Info("Programm stopped. Shutting down...")
-			resp, _ := http.Get("http://localhost:8080/sensors/stop")
-			defer resp.Body.Close()
-			logger.GlobalLogger.Info("Bye!")
+		logger.GlobalLogger.Info("Programm stopped. Shutting down...")
+		resp, _ := http.Get("http://localhost:8080/sensors/stop")
+		defer resp.Body.Close()
+		logger.GlobalLogger.Info("Bye!")
 	case <-server.QuitChan:
 		// Nothing else to do, just acknowledge the channel
 	}

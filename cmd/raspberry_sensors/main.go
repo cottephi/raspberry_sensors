@@ -1,8 +1,8 @@
 package main
 
 import (
-	"raspberry_sensors/internal/utils"
 	"flag"
+	"raspberry_sensors/internal/utils"
 )
 
 func main() {

@@ -2,12 +2,13 @@ package sensors
 
 import (
 	"raspberry_sensors/internal/logger"
-	"time"
 	"sync"
+	"time"
+
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"periph.io/x/conn/v3/i2c/i2creg"
-	"periph.io/x/devices/v3/bmxx80"
 	"periph.io/x/conn/v3/physic"
-	"github.com/influxdata/influxdb-client-go/v2"
+	"periph.io/x/devices/v3/bmxx80"
 )
 
 type SensorData interface {
@@ -21,7 +22,7 @@ type EnvSensorData struct {
 	InfluxClient influxdb2.Client
 	Org          string
 	Bucket       string
-	tags   	 		 map[string]string
+	tags         map[string]string
 	name         string
 	dryRun       bool
 }
@@ -31,10 +32,10 @@ func (data *EnvSensorData) UpdateFromEnv(env physic.Env) {
 }
 
 type Sensor struct {
-	Bus 			 string
-	Address 	 uint16
+	Bus        string
+	Address    uint16
 	connection *bmxx80.Dev
-	data 			 SensorData
+	data       SensorData
 	isRunning  bool
 	mu         sync.Mutex // To handle concurrent access to isRunning
 	Name       string
@@ -94,7 +95,7 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 
 							if err := sensor.Read(); err != nil {
 								logger.GlobalLogger.Error(err)
-							}	else {
+							} else {
 								sensor.data.Display()
 								if err := sensor.data.WriteToInfluxDB(); err != nil {
 									logger.GlobalLogger.Error(err)

@@ -2,21 +2,21 @@ package api
 
 import (
 	"fmt"
-	"raspberry_sensors/internal/logger"
 	"net/http"
+	"raspberry_sensors/internal/logger"
 	"sync"
 )
 
 type Server struct {
 	controlChannels [][2]chan bool
-	QuitChan chan struct{}
-	mu   sync.Mutex // To handle concurrent requests safely
+	QuitChan        chan struct{}
+	mu              sync.Mutex // To handle concurrent requests safely
 }
 
 func NewServer(controlChannels [][2]chan bool) *Server {
 	return &Server{
 		controlChannels: controlChannels,
-		QuitChan: make(chan struct{}),
+		QuitChan:        make(chan struct{}),
 	}
 }
 
@@ -25,7 +25,7 @@ func (s *Server) stopMonitoring(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	for _, controlChannels := range s.controlChannels {
 		controlChannels[0] <- false
-		<- controlChannels[1]  // wait for sensor confirmation
+		<-controlChannels[1] // wait for sensor confirmation
 	}
 }
 
@@ -41,7 +41,7 @@ func (s *Server) startMonitoring(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	for _, controlChannels := range s.controlChannels {
 		controlChannels[0] <- true
-		<- controlChannels[1]  // wait for sensor confirmation
+		<-controlChannels[1] // wait for sensor confirmation
 	}
 }
 
