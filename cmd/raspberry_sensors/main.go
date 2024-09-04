@@ -3,29 +3,36 @@ package main
 import (
 	"raspberry_sensors/internal/sensors"
 	"raspberry_sensors/internal/api"
-	"log"
+	"raspberry_sensors/internal/utils"
+	"raspberry_sensors/internal/logger"
 	"periph.io/x/host/v3"
 	"github.com/influxdata/influxdb-client-go/v2"
 	"os"
-	"os/signal"
 	"flag"
-	"net/http"
-	"syscall"
+	"fmt"
+	"time"
 )
 
 func main() {
 
 	start := flag.Bool("s", false, "If true, start data acquisition when program starts")
+	logFile := flag.String("l", "", "File to write logs to. If not specified, will not write logs to file.")
 	flag.Parse()
 
+	err := logger.InitGlobalLogger(*logFile, logger.DebugLevel)
+	if err != nil {
+			fmt.Printf("Failed to initialize logger: %v", err)
+			os.Exit(1)
+	}
+
 	if _, err := host.Init(); err != nil {
-		log.Fatal(err)
+		logger.GlobalLogger.Fatal(err)
 	}
 
 	INFLUXDB_SENSOR_TOKEN := os.Getenv("INFLUXDB_SENSOR_TOKEN")
 
 	if INFLUXDB_SENSOR_TOKEN == "" {
-		log.Fatal("Environment variable 'INFLUXDB_SENSOR_TOKEN' not found or empty")
+		logger.GlobalLogger.Fatal("Environment variable 'INFLUXDB_SENSOR_TOKEN' not found or empty")
 	}
 
 	influxClient := influxdb2.NewClient("http://localhost:8086", INFLUXDB_SENSOR_TOKEN)
@@ -35,46 +42,28 @@ func main() {
 		&sensors.NewSME280Sensor("/dev/i2c-1", 0x76, influxClient, "raspberry", "seconds").Sensor,
 	}
 
-	var controlChannels []chan bool
+	var controlChannels [][2]chan bool
 
 	for _, sensor := range sensors_slice {
-		controlChannel := make(chan bool)
-		defer close(controlChannel)
+		sensorControlChannels := [2]chan bool{make(chan bool), make(chan bool)}
+		defer close(sensorControlChannels[0])
+		defer close(sensorControlChannels[1])
 
 		sensor.Start()
 		defer sensor.Stop()
 
-		go sensor.Monitor(controlChannel)
-		controlChannels = append(controlChannels, controlChannel)
+		go sensor.Monitor(sensorControlChannels)
+		controlChannels = append(controlChannels, sensorControlChannels)
 	}
 
 	server := api.NewServer(controlChannels)
 	go server.Start(8080)
 
 	if *start {
-		resp, err := http.Get("http://localhost:8080/sensors/start")
-		if err != nil {
-			log.Fatalf("Failed to start sensors: %v", err)
-		}
-		defer resp.Body.Close()
+		err := utils.QueryWithRetry("http://localhost:8080/sensors/start", 5 * time.Second)
+    if err != nil {
+			logger.GlobalLogger.Fatalf("Failed to start sensors: %v", err)
+    }
 	}
-
-	waitForExitSignal(server)
-}
-
-func waitForExitSignal(server *api.Server) {
-	// Create a channel to receive OS signals
-	exitChan := make(chan os.Signal, 1)
-	signal.Notify(exitChan, os.Interrupt, syscall.SIGTERM)
-	defer close(server.QuitChan)
-
-	select {
-	case <-exitChan:
-			log.Println("Shutting down...")
-			resp, _ := http.Get("http://localhost:8080/sensors/stop")
-			defer resp.Body.Close()
-			log.Println("Bye!")
-	case <-server.QuitChan:
-		// Nothing else to do, just acknowledge the channel
-	}
+	utils.WaitForExitSignal(server)
 }

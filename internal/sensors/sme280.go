@@ -1,10 +1,10 @@
 package sensors
 
 import (
-    "log"
-		"time"
-		"context"
-		"github.com/influxdata/influxdb-client-go/v2"
+	"raspberry_sensors/internal/logger"
+	"time"
+	"context"
+	"github.com/influxdata/influxdb-client-go/v2"
 )
 
 type SME280Data struct {
@@ -17,7 +17,7 @@ type SME280Data struct {
 }
 
 func (data SME280Data) Display() {
-	log.Printf(
+	logger.GlobalLogger.Infof(
 		"Temperature: %.2f°C, Pressure: %.2f hPa, Humidity: %.2f%%\n",
 		float64(data.Temperature.Celsius()),
 		float64(data.Pressure) / 1e11,  // nPa to hPa,

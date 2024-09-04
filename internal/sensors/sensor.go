@@ -1,7 +1,7 @@
 package sensors
 
 import (
-	"log"
+	"raspberry_sensors/internal/logger"
 	"time"
 	"sync"
 	"periph.io/x/conn/v3/i2c/i2creg"
@@ -37,7 +37,7 @@ func (sensor *Sensor) Start() {
 	bus, err := i2creg.Open(sensor.Bus)
 
 	if err != nil {
-		log.Fatal(err)
+		logger.GlobalLogger.Fatal(err)
 	}
 
 	sensor.connection, err = bmxx80.NewI2C(
@@ -45,7 +45,7 @@ func (sensor *Sensor) Start() {
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		logger.GlobalLogger.Fatal(err)
 	}
 }
 
@@ -62,15 +62,15 @@ func (sensor *Sensor) Stop() {
 	defer sensor.connection.Halt() //nolint:errcheck
 }
 
-func (sensor *Sensor) Monitor(ctrlChan chan bool) {
+func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 	for { //nolint:gosimple
 		select {
-		case start := <-ctrlChan:
+		case start := <-ctrlChans[0]:
 			if start {
 				// Start monitoring if not already running
 				sensor.mu.Lock()
 				if !sensor.isRunning {
-					log.Println("Starting sensor", sensor.name)
+					logger.GlobalLogger.Infof("Starting sensor %s", sensor.name)
 					sensor.isRunning = true
 					sensor.mu.Unlock()
 
@@ -84,18 +84,18 @@ func (sensor *Sensor) Monitor(ctrlChan chan bool) {
 							sensor.mu.Unlock()
 
 							if err := sensor.Read(); err != nil {
-								log.Println(err)
+								logger.GlobalLogger.Error(err)
 							}	else {
 								sensor.data.Display()
 								if err := sensor.data.WriteToInfluxDB(); err != nil {
-									log.Println(err)
+									logger.GlobalLogger.Error(err)
 								}
 							}
 							time.Sleep(time.Second)
 						}
 					}()
 				} else {
-					log.Println("Sensor", sensor.name, " already running")
+					logger.GlobalLogger.Infof("Sensor %s already running", sensor.name)
 					sensor.mu.Unlock()
 				}
 			} else {
@@ -103,13 +103,13 @@ func (sensor *Sensor) Monitor(ctrlChan chan bool) {
 				sensor.mu.Lock()
 				if sensor.isRunning {
 					sensor.isRunning = false
-					log.Println("Stopped sensor", sensor.name)
+					logger.GlobalLogger.Infof("Stopped sensor %s", sensor.name)
 				} else {
-					log.Println("Sensor", sensor.name, "not running")
+					logger.GlobalLogger.Infof("Sensor %s not running", sensor.name)
 				}
 				sensor.mu.Unlock()
 			}
-			ctrlChan <- true // Confirm that the sensor received its instruction
+			ctrlChans[1] <- true // Confirm that the sensor received its instruction
 		}
 	}
 }
