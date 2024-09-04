@@ -7,6 +7,7 @@ import (
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/devices/v3/bmxx80"
 	"periph.io/x/conn/v3/physic"
+	"github.com/influxdata/influxdb-client-go/v2"
 )
 
 type SensorData interface {
@@ -17,6 +18,12 @@ type SensorData interface {
 
 type EnvSensorData struct {
 	physic.Env
+	InfluxClient influxdb2.Client
+	Org          string
+	Bucket       string
+	tags   	 		 map[string]string
+	name         string
+	dryRun       bool
 }
 
 func (data *EnvSensorData) UpdateFromEnv(env physic.Env) {
@@ -30,7 +37,7 @@ type Sensor struct {
 	data 			 SensorData
 	isRunning  bool
 	mu         sync.Mutex // To handle concurrent access to isRunning
-	name       string
+	Name       string
 }
 
 func (sensor *Sensor) Start() {
@@ -66,11 +73,12 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 	for { //nolint:gosimple
 		select {
 		case start := <-ctrlChans[0]:
+			logger.GlobalLogger.Debugf("Sensor %s received signal %t in its ctrlChan 0", sensor.Name, start)
 			if start {
 				// Start monitoring if not already running
 				sensor.mu.Lock()
 				if !sensor.isRunning {
-					logger.GlobalLogger.Infof("Starting sensor %s", sensor.name)
+					logger.GlobalLogger.Infof("Starting data acquisition of sensor %s", sensor.Name)
 					sensor.isRunning = true
 					sensor.mu.Unlock()
 
@@ -78,6 +86,7 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 						for {
 							sensor.mu.Lock()
 							if !sensor.isRunning {
+								logger.GlobalLogger.Debugf("Sensor %s is not running anymore. Exiting loop goroutine", sensor.Name)
 								sensor.mu.Unlock()
 								return
 							}
@@ -94,8 +103,9 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 							time.Sleep(time.Second)
 						}
 					}()
+
 				} else {
-					logger.GlobalLogger.Infof("Sensor %s already running", sensor.name)
+					logger.GlobalLogger.Infof("Sensor %s already running", sensor.Name)
 					sensor.mu.Unlock()
 				}
 			} else {
@@ -103,12 +113,13 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 				sensor.mu.Lock()
 				if sensor.isRunning {
 					sensor.isRunning = false
-					logger.GlobalLogger.Infof("Stopped sensor %s", sensor.name)
+					logger.GlobalLogger.Infof("Stopped data acquisition of sensor %s", sensor.Name)
 				} else {
-					logger.GlobalLogger.Infof("Sensor %s not running", sensor.name)
+					logger.GlobalLogger.Infof("Sensor %s not running", sensor.Name)
 				}
 				sensor.mu.Unlock()
 			}
+			logger.GlobalLogger.Debugf("Sensor %s confirms it processed signal %t in its ctrlChan 0", sensor.Name, start)
 			ctrlChans[1] <- true // Confirm that the sensor received its instruction
 		}
 	}

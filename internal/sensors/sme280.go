@@ -9,11 +9,6 @@ import (
 
 type SME280Data struct {
 	EnvSensorData
-	InfluxClient influxdb2.Client
-	Org          string
-	Bucket       string
-	tags   	 		 map[string]string
-	name         string
 }
 
 func (data SME280Data) Display() {
@@ -26,6 +21,11 @@ func (data SME280Data) Display() {
 }
 
 func (data SME280Data) WriteToInfluxDB() error {
+	if data.dryRun {
+		logger.GlobalLogger.Debug("Dry run, not writing to DB")
+		return nil	
+	}
+	logger.GlobalLogger.Debugf("Writing to DB: Org=%s, Bucket=%s, measurement=%s, tags=%s", data.Org, data.Bucket, data.name, data.tags)
 	now := time.Now()
 
 	writeAPI := data.InfluxClient.WriteAPIBlocking(data.Org, data.Bucket)
@@ -50,19 +50,22 @@ type SME280Sensor struct {
 }
 
 
-func NewSME280Sensor(bus string, address uint16, influxClient influxdb2.Client, org, bucket string) *SME280Sensor {
+func NewSME280Sensor(bus string, address uint16, influxClient influxdb2.Client, org, bucket string, dryRun bool) *SME280Sensor {
 	return &SME280Sensor{
 		Sensor: Sensor{
 			Bus:     bus,
 			Address: address,
 			data:    &SME280Data{
-				InfluxClient: influxClient,
-				Org:          org,
-				Bucket:       bucket,
-				tags:         map[string]string{"sensor": "SME280", "location": "office"},
-				name:         "environment_sme280",
+				EnvSensorData: EnvSensorData{
+					InfluxClient: influxClient,
+					Org:          org,
+					Bucket:       bucket,
+					tags:         map[string]string{"sensor": "SME280", "location": "office"},
+					name:         "environment_sme280",
+					dryRun: 		  dryRun,
+				},
 			},
-			name:   "SME280",
+			Name:   "SME280",
 		},
 	}
 }

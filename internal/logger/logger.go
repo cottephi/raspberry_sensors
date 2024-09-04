@@ -1,12 +1,15 @@
 package logger
 
 import (
-    "io"
-		"fmt"
-		"time"
-    "log"
-    "os"
-		"strconv"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // Define log levels as constants
@@ -15,7 +18,7 @@ const (
 	InfoLevel
 	WarningLevel
 	ErrorLevel
-	flag = log.Ldate|log.Ltime|log.Lshortfile
+	flag = log.Ldate|log.Ltime
 )
 
 func getMaxLogSize() int64 {
@@ -41,6 +44,7 @@ type Logger struct {
     logFilePath   string
 		level					int
     logFile       *os.File
+    projectDir    string
 }
 
 var GlobalLogger *Logger
@@ -52,6 +56,13 @@ func InitGlobalLogger(logFilePath string, level int) error {
 }
 
 func newLogger(logFilePath string, level int) (*Logger, error) {
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+			return nil, fmt.Errorf("could not determine the project directory")
+	}
+	projectDir := filepath.Dir(filepath.Dir(filepath.Dir(file))) + "/"
+
 	logger := &Logger{
 		infoLogger:    log.New(os.Stdout, "INFO: ", flag),
 		warningLogger: log.New(os.Stdout, "WARNING: ", flag),
@@ -60,6 +71,7 @@ func newLogger(logFilePath string, level int) (*Logger, error) {
 		fatalLogger:   log.New(os.Stderr, "FATAL: ", flag),
 		logFilePath: 	 logFilePath,
 		level:       	 level,
+		projectDir:	   projectDir,
 	}
 
 	if err := logger.rotateLogFile(); err != nil {
@@ -81,10 +93,6 @@ func (l *Logger) rotateLogFile() error {
 	if err == nil {
 		// If the file exists and is over the size limit, rotate it
 		if fileInfo.Size() >= MaxLogSize {
-			if l.logFile != nil {
-				l.logFile.Close()
-				l.logFile = nil
-			}
 			newLogFilePath := fmt.Sprintf("%s.%s", l.logFilePath, time.Now().Format("20060102-150405"))
 			if err := os.Rename(l.logFilePath, newLogFilePath); err != nil {
 					return fmt.Errorf("failed to rotate log file: %v", err)
@@ -95,6 +103,11 @@ func (l *Logger) rotateLogFile() error {
 		}
 	} else if ! os.IsNotExist(err) {
 		return fmt.Errorf("failed to stat log file: %v", err)
+	}
+
+	if l.logFile != nil {
+		l.logFile.Close()
+		l.logFile = nil
 	}
 
 	// Open a new (or existing) log file
@@ -128,7 +141,7 @@ func (l *Logger) Info(msg string) {
 	l.logWithRotation(
 		func() {
 			if l.level <= InfoLevel {
-				l.infoLogger.Println(msg)
+				l.infoLogger.Printf("%s: %s", l.callerInfo(), msg)
 			}
 		},
 	)
@@ -138,7 +151,7 @@ func (l *Logger) Infof(format string, args ...interface{}) {
 	l.logWithRotation(
 		func() {
 			if l.level <= InfoLevel {
-				l.infoLogger.Printf(format, args...)
+				l.infoLogger.Printf("%s: %s", l.callerInfo(), fmt.Sprintf(format, args...))
 			}
 		},
 	)
@@ -148,7 +161,7 @@ func (l *Logger) Warning(msg string) {
 	l.logWithRotation(
 		func() {
 			if l.level <= WarningLevel {
-					l.warningLogger.Println(msg)
+					l.warningLogger.Printf("%s: %s", l.callerInfo(), msg)
 			}
 		},
 	)
@@ -158,7 +171,7 @@ func (l *Logger) Warningf(format string, args ...interface{}) {
 	l.logWithRotation(
 		func() {
 			if l.level <= WarningLevel {
-				l.warningLogger.Printf(format, args...)
+				l.warningLogger.Printf("%s: %s", l.callerInfo(), fmt.Sprintf(format, args...))
 			}
 		},
 	)
@@ -168,7 +181,7 @@ func (l *Logger) Error(msg interface{}) {
 	l.logWithRotation(
 		func() {
 			if l.level <= ErrorLevel {	
-				handleError(msg, l.fatalLogger)
+				l.handleError(msg, l.errorLogger)
 			}
 		},
 	)
@@ -178,7 +191,7 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 	l.logWithRotation(
 		func() {
 			if l.level <= ErrorLevel {
-				l.errorLogger.Printf(format, args...)
+				l.errorLogger.Printf("%s: %s", l.callerInfo(), fmt.Sprintf(format, args...))
 			}
 		},
 	)
@@ -188,7 +201,7 @@ func (l *Logger) Debug(msg string) {
 	l.logWithRotation(
 		func() {
 			if l.level <= DebugLevel {
-					l.debugLogger.Println(msg)
+					l.debugLogger.Printf("%s: %s", l.callerInfo(), msg)
 			}
 		},
 	)
@@ -198,7 +211,7 @@ func (l *Logger) Debugf(format string, args ...interface{}) {
 	l.logWithRotation(
 		func() {
 			if l.level <= DebugLevel {
-				l.debugLogger.Printf(format, args...)
+				l.debugLogger.Printf("%s: %s", l.callerInfo(), fmt.Sprintf(format, args...))
 			}
 		},
 	)
@@ -207,7 +220,7 @@ func (l *Logger) Debugf(format string, args ...interface{}) {
 func (l *Logger) Fatal(msg interface{}) {
 	l.logWithRotation(
 		func() {
-			handleError(msg, l.fatalLogger)
+			l.handleError(msg, l.fatalLogger)
 			os.Exit(1)
 		},
 	)
@@ -216,20 +229,48 @@ func (l *Logger) Fatal(msg interface{}) {
 func (l *Logger) Fatalf(format string, args ...interface{}) {
 	l.logWithRotation(
 		func() {
-			l.fatalLogger.Printf(format, args...)
+			l.fatalLogger.Printf("%s: %s", l.callerInfo(), fmt.Sprintf(format, args...))
 			os.Exit(1)
 		},
 	)
 }
 
+// Close closes the log file if necessary
+func (l *Logger) Close() {
+    if l.logFile != nil {
+        l.logFile.Close()
+    }
+}
 
-func handleError(msg interface{}, logger *log.Logger) {
+
+func (l *Logger) handleError(msg interface{}, logger *log.Logger) {
 	switch msg := msg.(type) {
 	case string:
-		logger.Println(msg)
+		logger.Printf("%s: %s", l.callerInfo(), msg)
 	case error:
 		logger.Println(msg.Error())
 	default:
-		logger.Println(msg)
+		logger.Printf("%s: %s", l.callerInfo(), msg)
 	}
+}
+
+// callerInfo retrieves the file and line number of the caller
+func (l *Logger) callerInfo() string {
+
+	file := "logger.go"
+	line := 0
+	ok := true
+	i := 0
+
+	for strings.HasSuffix(file, "logger.go") {
+		_, file, line, ok = runtime.Caller(i)
+		if !ok {
+				return "unknown:0"
+		}
+		i++
+	}
+
+	file = strings.TrimPrefix(file, l.projectDir)
+
+	return fmt.Sprintf("%s:%d", file, line)
 }
