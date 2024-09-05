@@ -5,28 +5,30 @@ import (
 	"raspberry_sensors/internal/logger"
 	"time"
 
-	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2"
 )
 
-type SME280Data struct {
+type BME280Data struct {
 	EnvSensorData
 }
 
-func (data SME280Data) Display() {
-	logger.GlobalLogger.Infof(
-		"Temperature: %.2f°C, Pressure: %.2f hPa, Humidity: %.2f%%\n",
+func (data BME280Data) Display() {
+	l := logger.Get()
+	l.Info().Msgf(
+		"Temperature: %.2f°C, Pressure: %.2f hPa, Humidity: %.2f%%",
 		float64(data.Temperature.Celsius()),
 		float64(data.Pressure)/1e11, // nPa to hPa,
 		float64(data.Humidity)/1e5,  // tenth micro % to %
 	)
 }
 
-func (data SME280Data) WriteToInfluxDB() error {
+func (data BME280Data) WriteToInfluxDB() error {
+	l := logger.Get()
 	if data.dryRun {
-		logger.GlobalLogger.Debug("Dry run, not writing to DB")
+		l.Debug().Msg("Dry run, not writing to DB")
 		return nil
 	}
-	logger.GlobalLogger.Debugf("Writing to DB: Org=%s, Bucket=%s, measurement=%s, tags=%s", data.Org, data.Bucket, data.name, data.tags)
+	l.Debug().Msgf("Writing to DB: Org=%s, Bucket=%s, measurement=%s, tags=%s", data.Org, data.Bucket, data.name, data.tags)
 	now := time.Now()
 
 	writeAPI := data.InfluxClient.WriteAPIBlocking(data.Org, data.Bucket)
@@ -46,26 +48,26 @@ func (data SME280Data) WriteToInfluxDB() error {
 	return writeAPI.WritePoint(context.Background(), p)
 }
 
-type SME280Sensor struct {
+type BME280Sensor struct {
 	Sensor
 }
 
-func NewSME280Sensor(bus string, address uint16, influxClient influxdb2.Client, org, bucket string, dryRun bool) *SME280Sensor {
-	return &SME280Sensor{
+func NewBME280Sensor(bus string, address uint16, influxClient influxdb2.Client, org, bucket string, dryRun bool) *BME280Sensor {
+	return &BME280Sensor{
 		Sensor: Sensor{
 			Bus:     bus,
 			Address: address,
-			data: &SME280Data{
+			data: &BME280Data{
 				EnvSensorData: EnvSensorData{
 					InfluxClient: influxClient,
 					Org:          org,
 					Bucket:       bucket,
-					tags:         map[string]string{"sensor": "SME280", "location": "office"},
-					name:         "environment_sme280",
+					tags:         map[string]string{"sensor": "BME280", "location": "office"},
+					name:         "environment_bme280",
 					dryRun:       dryRun,
 				},
 			},
-			Name: "SME280",
+			Name: "BME280",
 		},
 	}
 }

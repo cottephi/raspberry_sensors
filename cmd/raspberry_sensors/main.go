@@ -2,17 +2,27 @@ package main
 
 import (
 	"flag"
+	"raspberry_sensors/internal/config"
+	"raspberry_sensors/internal/logger"
 	"raspberry_sensors/internal/utils"
+
+	"periph.io/x/host/v3"
 )
+
+func init() {
+	c := config.Get()
+	l := logger.Get()
+	l.Info().Msgf("Loaded config: %+v", c)
+	if _, err := host.Init(); err != nil {
+		l.Fatal().Msgf("Failed to initialize periph.io: %v", err)
+	}
+}
 
 func main() {
 
-	start := flag.Bool("s", false, "If true, start data acquisition when program starts")
-	logFile := flag.String("l", "", "File to write logs to. If not specified, will not write logs to file.")
-	dryRun := flag.Bool("d", false, "Dry run. If True, will not write to DB")
+	start := flag.Bool("s", false, "If true, start data acquisition when program starts.")
+	dryRun := flag.Bool("d", false, "Dry run. If True, will not write to DB.")
 	flag.Parse()
-
-	utils.StartLogger(*logFile)
 
 	influxClient := utils.StartDB()
 	defer (*influxClient).Close()

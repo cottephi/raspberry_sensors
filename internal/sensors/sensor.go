@@ -42,10 +42,11 @@ type Sensor struct {
 }
 
 func (sensor *Sensor) Start() {
+	l := logger.Get()
 	bus, err := i2creg.Open(sensor.Bus)
 
 	if err != nil {
-		logger.GlobalLogger.Fatal(err)
+		l.Fatal().Err(err)
 	}
 
 	sensor.connection, err = bmxx80.NewI2C(
@@ -53,7 +54,7 @@ func (sensor *Sensor) Start() {
 	)
 
 	if err != nil {
-		logger.GlobalLogger.Fatal(err)
+		l.Fatal().Err(err)
 	}
 }
 
@@ -71,15 +72,16 @@ func (sensor *Sensor) Stop() {
 }
 
 func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
+	l := logger.Get()
 	for { //nolint:gosimple
 		select {
 		case start := <-ctrlChans[0]:
-			logger.GlobalLogger.Debugf("Sensor %s received signal %t in its ctrlChan 0", sensor.Name, start)
+			l.Debug().Msgf("Sensor %s received signal %t in its ctrlChan 0", sensor.Name, start)
 			if start {
 				// Start monitoring if not already running
 				sensor.mu.Lock()
 				if !sensor.isRunning {
-					logger.GlobalLogger.Infof("Starting data acquisition of sensor %s", sensor.Name)
+					l.Info().Msgf("Starting data acquisition of sensor %s", sensor.Name)
 					sensor.isRunning = true
 					sensor.mu.Unlock()
 
@@ -87,18 +89,18 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 						for {
 							sensor.mu.Lock()
 							if !sensor.isRunning {
-								logger.GlobalLogger.Debugf("Sensor %s is not running anymore. Exiting loop goroutine", sensor.Name)
+								l.Debug().Msgf("Sensor %s is not running anymore. Exiting loop goroutine", sensor.Name)
 								sensor.mu.Unlock()
 								return
 							}
 							sensor.mu.Unlock()
 
 							if err := sensor.Read(); err != nil {
-								logger.GlobalLogger.Error(err)
+								l.Error().Err(err)
 							} else {
 								sensor.data.Display()
 								if err := sensor.data.WriteToInfluxDB(); err != nil {
-									logger.GlobalLogger.Error(err)
+									l.Error().Err(err)
 								}
 							}
 							time.Sleep(time.Second)
@@ -106,7 +108,7 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 					}()
 
 				} else {
-					logger.GlobalLogger.Infof("Sensor %s already running", sensor.Name)
+					l.Info().Msgf("Sensor %s already running", sensor.Name)
 					sensor.mu.Unlock()
 				}
 			} else {
@@ -114,13 +116,13 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 				sensor.mu.Lock()
 				if sensor.isRunning {
 					sensor.isRunning = false
-					logger.GlobalLogger.Infof("Stopped data acquisition of sensor %s", sensor.Name)
+					l.Info().Msgf("Stopped data acquisition of sensor %s", sensor.Name)
 				} else {
-					logger.GlobalLogger.Infof("Sensor %s not running", sensor.Name)
+					l.Info().Msgf("Sensor %s not running", sensor.Name)
 				}
 				sensor.mu.Unlock()
 			}
-			logger.GlobalLogger.Debugf("Sensor %s confirms it processed signal %t in its ctrlChan 0", sensor.Name, start)
+			l.Debug().Msgf("Sensor %s confirms it processed signal %t in its ctrlChan 0", sensor.Name, start)
 			ctrlChans[1] <- true // Confirm that the sensor received its instruction
 		}
 	}
