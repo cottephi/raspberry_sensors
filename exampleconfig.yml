@@ -9,4 +9,5 @@ database:
 
 logger:
   path: "log.log"
-  level: 0
+  # zerolog levels are 'trace', 'debug', 'info', 'warn', 'error', 'fatal' and 'panic'
+  level: "info"

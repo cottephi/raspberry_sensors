@@ -71,7 +71,7 @@ func requestLogger(next http.Handler) http.Handler {
 
 	accessHandler := hlog.AccessHandler(
 			func(r *http.Request, status, size int, duration time.Duration) {
-					hlog.FromRequest(r).Info().
+					hlog.FromRequest(r).Debug().
 							Str("method", r.Method).
 							Stringer("url", r.URL).
 							Int("status_code", status).

@@ -19,7 +19,7 @@ type Config struct {
 	} `yaml:"database"`
 	Logger struct {
 		Path  string `yaml:"path" env:"LOG_PATH" env-default:"./log.log"`
-		Level int    `yaml:"level" env:"LOG_LEVEL" env-default:"1"`
+		Level string    `yaml:"level" env:"LOG_LEVEL" env-default:"INFO"`
 	} `yaml:"logger"`
 }
 

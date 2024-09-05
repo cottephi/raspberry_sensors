@@ -21,18 +21,12 @@ func StartDB() *influxdb2.Client {
 	c := config.Get()
 	l := logger.Get()
 
-	INFLUXDB_SENSOR_TOKEN := c.Database.Token
-
-	if INFLUXDB_SENSOR_TOKEN == "" {
-		l.Fatal().Msg("Token for InfluxDB not found or empty")
-	}
-
 	l.Info().Msg("Creating InfluxDB client...")
 	influxClient := influxdb2.NewClient(
 		fmt.Sprintf(
 			"%s:%s", c.Database.Host, c.Database.Port,
 		),
-		INFLUXDB_SENSOR_TOKEN,
+		c.Database.Token,
 	)
 	l.Info().Msg("...ok")
 	return &influxClient

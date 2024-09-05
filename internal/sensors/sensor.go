@@ -46,7 +46,7 @@ func (sensor *Sensor) Start() {
 	bus, err := i2creg.Open(sensor.Bus)
 
 	if err != nil {
-		l.Fatal().Err(err)
+		l.Fatal().Err(err).Msg("")
 	}
 
 	sensor.connection, err = bmxx80.NewI2C(
@@ -54,7 +54,7 @@ func (sensor *Sensor) Start() {
 	)
 
 	if err != nil {
-		l.Fatal().Err(err)
+		l.Fatal().Err(err).Msg("")
 	}
 }
 
