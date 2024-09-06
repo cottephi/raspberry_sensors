@@ -96,11 +96,11 @@ func (sensor *Sensor) Monitor(ctrlChans [2]chan bool) {
 							sensor.mu.Unlock()
 
 							if err := sensor.Read(); err != nil {
-								l.Error().Err(err)
+								l.Error().Err(err).Msg("")
 							} else {
 								sensor.data.Display()
 								if err := sensor.data.WriteToInfluxDB(); err != nil {
-									l.Error().Err(err)
+									l.Error().Err(err).Msg("")
 								}
 							}
 							time.Sleep(time.Second)

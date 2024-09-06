@@ -5,8 +5,8 @@ api:
   port: 8080
 
 database:
-  # Overriden by env var DB_HOST, default is localhost
-  host: localhost
+  # Overriden by env var DB_HOST, default is http://localhost
+  host: http://localhost
   # Overriden by env var DB_PORT, default is 8086
   port: 8086
   # Overriden by env var DB_TOKEN, no default, mandatory

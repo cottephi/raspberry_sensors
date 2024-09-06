@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"sync"
+	"strings"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/subosito/gotenv"
@@ -14,7 +15,7 @@ type Config struct {
 		Port string `yaml:"port" env:"SERVER_PORT" env-default:"8080"`
 	} `yaml:"api"`
 	Database struct {
-		Host  string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+		Host  string `yaml:"host" env:"DB_HOST" env-default:"http://localhost"`
 		Port  string `yaml:"port" env:"DB_PORT" env-default:"8080"`
 		Token string `yaml:"token" env:"DB_TOKEN" env-required:"true"`
 	} `yaml:"database"`
@@ -43,6 +44,11 @@ func (c *Config) Validate() error {
 		}
 		description += fmt.Sprintf(" - %s: %s\n", value[1], value[0])
 	}
+
+	if !strings.HasPrefix(c.Database.Host, "http://") && !strings.HasPrefix(c.Database.Host, "https://"){
+		return fmt.Errorf("value for Database Host has no protocol scheme. Add 'http://' or 'https://'")
+	}
+
 	description += " - Log file path: " + c.Logger.Path
 	c.Description = description
 	return nil
