@@ -25,3 +25,4 @@ go.work.sum
 .env
 *.log
 config.yml
+!internal/grafana/promtail/config.yml

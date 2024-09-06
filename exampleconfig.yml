@@ -1,13 +1,17 @@
 api:
+  # Overriden by env var SERVER_HOST, default is localhost
   host: "localhost"
+  # Overriden by env var SERVER_PORT, default is 8080
   port: 8080
 
 database:
+  # Overriden by env var DB_HOST, default is localhost
   host: localhost
+  # Overriden by env var DB_PORT, default is 8086
   port: 8086
+  # Overriden by env var DB_TOKEN, no default, mandatory
   token: <your inglux DB token>
 
 logger:
-  path: "log.log"
   # zerolog levels are 'trace', 'debug', 'info', 'warn', 'error', 'fatal' and 'panic'
   level: "info"

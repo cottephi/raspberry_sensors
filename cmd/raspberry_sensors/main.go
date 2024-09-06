@@ -12,7 +12,7 @@ import (
 func init() {
 	c := config.Get()
 	l := logger.Get()
-	l.Info().Msgf("Loaded config: %+v", c)
+	l.Info().Msg(c.Description)
 	if _, err := host.Init(); err != nil {
 		l.Fatal().Msgf("Failed to initialize periph.io: %v", err)
 	}
