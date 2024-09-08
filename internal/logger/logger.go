@@ -58,6 +58,7 @@ func Get() zerolog.Logger {
 		logFilePath := c.Logger.Path
 
 		if logFilePath != "" {
+			fmt.Printf("Subsequent logs will be written to : %s\n", logFilePath)
 			logFilePath = path.Join(logFilePath, "log.log")
 			fileLogger := &lumberjack.Logger{
 				Filename:   logFilePath,
@@ -81,6 +82,7 @@ func Get() zerolog.Logger {
 				Logger()
 		} else {
 			// If no file writer, just use the console logger
+			fmt.Println("No logfile path provided, only logging in the console")
 			log = zerolog.New(filteredConsoleWriter).
 				With().
 				Timestamp().

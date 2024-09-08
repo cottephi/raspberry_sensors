@@ -57,8 +57,8 @@ func (s *Server) Start() {
 	mux.HandleFunc("/sensors/stop", s.stopMonitoring)
 	mux.HandleFunc("/sensors/start", s.startMonitoring)
 	mux.HandleFunc("/sensors/kill", s.kill)
-	addr := fmt.Sprintf("%s:%s", c.Api.Host, c.Api.Port)
-	l.Info().Msgf("Listening/Serving on port %s:%s...", c.Api.Host, c.Api.Port)
+	addr := fmt.Sprintf("%s:%s", c.Api.URL.Hostname(), c.Api.Port)
+	l.Info().Msgf("Listening/Serving on %s", addr)
 	if err := http.ListenAndServe(addr, requestLogger(mux)); err != nil {
 		l.Fatal().Err(err).Msg("Failed to start server")
 	}

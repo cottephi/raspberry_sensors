@@ -1,6 +1,6 @@
 api:
-  # Overriden by env var SERVER_HOST, default is localhost
-  host: "localhost"
+  # Overriden by env var SERVER_HOST, default is http://localhost
+  host: "http://localhost"
   # Overriden by env var SERVER_PORT, default is 8080
   port: 8080
 
@@ -9,7 +9,7 @@ database:
   host: http://localhost
   # Overriden by env var DB_PORT, default is 8086
   port: 8086
-  # Overriden by env var DB_TOKEN, no default, mandatory
+  # Overriden by env var DB_TOKEN, default is ""
   token: <your inglux DB token>
 
 logger:

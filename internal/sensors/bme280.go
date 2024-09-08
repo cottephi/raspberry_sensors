@@ -5,7 +5,7 @@ import (
 	"raspberry_sensors/internal/logger"
 	"time"
 
-	"github.com/influxdata/influxdb-client-go/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 )
 
 type BME280Data struct {
@@ -28,10 +28,14 @@ func (data BME280Data) WriteToInfluxDB() error {
 		l.Debug().Msg("Dry run, not writing to DB")
 		return nil
 	}
+	if data.InfluxClient == nil {
+		l.Debug().Msg("Database not started, not writing to DB")
+		return nil
+	}
 	l.Debug().Msgf("Writing to DB: Org=%s, Bucket=%s, measurement=%s, tags=%s", data.Org, data.Bucket, data.name, data.tags)
 	now := time.Now()
 
-	writeAPI := data.InfluxClient.WriteAPIBlocking(data.Org, data.Bucket)
+	writeAPI := (*data.InfluxClient).WriteAPIBlocking(data.Org, data.Bucket)
 
 	p := influxdb2.NewPoint(
 		data.name, // measurement name
@@ -52,7 +56,7 @@ type BME280Sensor struct {
 	Sensor
 }
 
-func NewBME280Sensor(bus string, address uint16, influxClient influxdb2.Client, org, bucket string, dryRun bool) *BME280Sensor {
+func NewBME280Sensor(bus string, address uint16, influxClient *influxdb2.Client, org, bucket string, dryRun bool) *BME280Sensor {
 	return &BME280Sensor{
 		Sensor: Sensor{
 			Bus:     bus,

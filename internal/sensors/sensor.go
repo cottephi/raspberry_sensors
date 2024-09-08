@@ -19,7 +19,7 @@ type SensorData interface {
 
 type EnvSensorData struct {
 	physic.Env
-	InfluxClient influxdb2.Client
+	InfluxClient *influxdb2.Client
 	Org          string
 	Bucket       string
 	tags         map[string]string

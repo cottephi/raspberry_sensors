@@ -21,6 +21,11 @@ func StartDB() *influxdb2.Client {
 	c := config.Get()
 	l := logger.Get()
 
+	if c.Database.Token == "" {
+		l.Warn().Msg("No InfluxDB token provided. Not starting Database.")
+		return nil
+	}
+
 	l.Info().Msg("Creating InfluxDB client...")
 	influxClient := influxdb2.NewClient(
 		fmt.Sprintf(
@@ -36,7 +41,7 @@ func StartSensors(influxClient *influxdb2.Client, dryRun bool) ([][2]chan bool, 
 	l := logger.Get()
 	l.Info().Msg("Creating Sensors...")
 	sensors_slice := []*sensors.Sensor{
-		&sensors.NewBME280Sensor("/dev/i2c-1", 0x76, *influxClient, "raspberry", "seconds", dryRun).Sensor,
+		&sensors.NewBME280Sensor("/dev/i2c-1", 0x76, influxClient, "raspberry", "seconds", dryRun).Sensor,
 	}
 	l.Info().Msg("...ok")
 

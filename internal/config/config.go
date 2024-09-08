@@ -2,8 +2,9 @@ package config
 
 import (
 	"fmt"
-	"sync"
+	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/subosito/gotenv"
@@ -11,13 +12,15 @@ import (
 
 type Config struct {
 	Api struct {
-		Host string `yaml:"host" env:"SERVER_HOST" env-default:"localhost"`
+		Host string `yaml:"host" env:"SERVER_HOST" env-default:"http://localhost"`
 		Port string `yaml:"port" env:"SERVER_PORT" env-default:"8080"`
+		URL *url.URL
 	} `yaml:"api"`
 	Database struct {
 		Host  string `yaml:"host" env:"DB_HOST" env-default:"http://localhost"`
 		Port  string `yaml:"port" env:"DB_PORT" env-default:"8080"`
-		Token string `yaml:"token" env:"DB_TOKEN" env-required:"true"`
+		Token string `yaml:"token" env:"DB_TOKEN"`
+		URL *url.URL
 	} `yaml:"database"`
 	Logger struct {
 		Path  string `env:"LOG_PATH" env-default:""`
@@ -30,12 +33,22 @@ func (c *Config) Validate() error {
 
 	description := "Configuration:\n"
 
-	nonEmptyStrings := [][2]string{
-		{c.Api.Host, "Server Host"},
-		{c.Api.Port, "Server Port"},
-		{c.Database.Host, "Database Host"},
-		{c.Database.Port, "Database Port"},
-		{c.Logger.Level, "Logger Level"},
+	var nonEmptyStrings [][2]string
+
+	if c.Database.Token == "" {
+		nonEmptyStrings = [][2]string{
+			{c.Api.Host, "Server Host"},
+			{c.Api.Port, "Server Port"},
+			{c.Logger.Level, "Logger Level"},
+		}
+	} else {
+		nonEmptyStrings = [][2]string{
+			{c.Api.Host, "Server Host"},
+			{c.Api.Port, "Server Port"},
+			{c.Database.Host, "Database Host"},
+			{c.Database.Port, "Database Port"},
+			{c.Logger.Level, "Logger Level"},
+		}
 	}
 
 	for _, value := range nonEmptyStrings {
@@ -44,12 +57,35 @@ func (c *Config) Validate() error {
 		}
 		description += fmt.Sprintf(" - %s: %s\n", value[1], value[0])
 	}
+	description += " - Log file path: " + c.Logger.Path + "\n"
+
+	var err error
+
+	if !strings.HasPrefix(c.Api.Host, "http://") && !strings.HasPrefix(c.Api.Host, "https://"){
+		return fmt.Errorf("value for Server Host has no protocol scheme. Add 'http://' or 'https://'")
+	}
+
+	c.Api.URL, err = url.Parse(fmt.Sprintf("%s:%s", c.Api.Host, c.Api.Port))
+	if err != nil {
+		return fmt.Errorf("error parsing Server Host and Port into an URL: %s", err)
+	}
+	description += fmt.Sprintf(" - Server URL: %s\n", c.Api.URL)
+
+	if c.Database.Token == "" {
+		description += "No database token given, not writing data to database"
+		c.Description = description
+		return nil
+	}
 
 	if !strings.HasPrefix(c.Database.Host, "http://") && !strings.HasPrefix(c.Database.Host, "https://"){
 		return fmt.Errorf("value for Database Host has no protocol scheme. Add 'http://' or 'https://'")
 	}
+	c.Database.URL, err = url.Parse(fmt.Sprintf("%s:%s", c.Api.Host, c.Api.Port))
+	if err != nil {
+		return fmt.Errorf("error parsing Database Host and Port into an URL: %s", err)
+	}
+	description += fmt.Sprintf(" - Database URL: %s\n", c.Api.URL)
 
-	description += " - Log file path: " + c.Logger.Path
 	c.Description = description
 	return nil
 }

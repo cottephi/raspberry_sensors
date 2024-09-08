@@ -25,7 +25,9 @@ func main() {
 	flag.Parse()
 
 	influxClient := utils.StartDB()
-	defer (*influxClient).Close()
+	if influxClient != nil {
+		defer (*influxClient).Close()
+	}
 
 	controlChannels, sensors_slice := utils.StartSensors(influxClient, *dryRun)
 
