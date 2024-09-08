@@ -127,12 +127,73 @@ This will start Grafana, Promtail and Loki. Check their logs to see if everythin
 
 The log files are rotating files of at most 1GB each, keeping at most the last 5 log files for at most 7 days.
 
+## Service configuration
+
+To make this program start with your Raspberry Pi, create a Systemd service :
+
+```bash
+sudo nano /etc/systemd/system/raspberry_sensors.service
+```
+
+with the following content
+
+```
+[Unit]
+Description=Raspberry Sensors Go Program
+After=influxdb.service
+
+[Service]
+WorkingDirectory=<your home>/projects/raspberry_sensors
+ExecStart=<your home>/projects/raspberry_sensors/raspberry_sensors.exe -s
+Restart=always
+User=<your user name>
+
+[Install]
+WantedBy=multi-user.target
+```
+
+and a second one
+
+```bash
+sudo nano /etc/systemd/system/docker-compose-monitoring.service
+```
+
+with the following content
+
+```
+[Unit]
+Description=Docker Compose Stack for Grafana, Promtail, Loki
+Requires=docker.service
+After=docker.service
+
+[Service]
+WorkingDirectory=<your home>/projects/raspberry_sensors
+ExecStart=/usr/bin/docker compose up
+ExecStop=/usr/bin/docker compose down
+Restart=always
+User=<your user name>
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Run then
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable docker-compose-monitoring.service
+sudo systemctl enable raspberry_sensors.service
+sudo systemctl start docker-compose-monitoring.service
+sudo systemctl start raspberry_sensors.service
+```
+
+
 ## Useful commands
 
 Empty a bucket in the database
 
 ```bash
-influx delete --bucket $BUCKET --predicate '_measurement="environment_bme280"' --start '1970-01-01T00:00:00Z' --stop $(date +"%Y-%m-%dT%H:%M:%SZ") --org raspberry --token $TOKEN
+influx delete --bucket <bucket> --predicate '_measurement="environment_bme280"' --start '1970-01-01T00:00:00Z' --stop $(date +"%Y-%m-%dT%H:%M:%SZ") --org raspberry --token <admin token>
 ```
 
 Stop data acquisition without killing the program
